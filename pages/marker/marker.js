@@ -52,31 +52,29 @@ const enablePageFooter = (enable) => {
     }
 }
 
+const fs = require('fs'); // Подключаем модуль fs для работы с файловой системой
+
 const zip = () => {
     // TODO: replace alerts with HTML error messages.
     if (!window.markerImage) return alert('please select a marker image');
     if (!window.assetType) return alert('please select the correct content type');
     if (!window.assetFile || !window.assetName) return alert('please upload a content');
 
-    MarkerModule.getMarkerPattern(window.markerImage)
-        .then((markerPattern) => (new Package({
-            arType: 'pattern',
-            assetType: window.assetType, // image/audio/video/3d
-            assetFile: window.assetFile,
-            assetName: window.assetName,
-            assetParam: window.assetParam,
-            markerPatt: markerPattern
-        })))
-        .then((package) => package.serve({ packageType: 'zip' }))
-        .then((base64) => {
-            // window.location = `data:application/zip;base64,${base64}`;
-            // sometimes it doesn't work by use window.location directly, so change to this way
-            const link = document.createElement('a');
-            link.href = `data:application/zip;base64,${base64}`;
-            link.download = 'ar.zip';
-            link.click();
-        });
+    // Создаем имя папки на основе текущей даты и времени
+    const folderName = `ar_${new Date().toISOString().replace(/[:.]/g, '-')}`;
+    // Создаем новую папку
+    fs.mkdirSync(folderName);
+
+    // Переменная для хранения пути к папке
+    const folderPath = `./${folderName}/`;
+
+    // Копируем файлы в созданную папку
+    fs.copyFileSync(window.markerImage, `${folderPath}markerImage.png`);
+    fs.copyFileSync(window.assetFile, `${folderPath}${window.assetName}`);
+
+    alert('Files copied to folder: ' + folderName);
 };
+
 
 /**
  * Stores the session data and redirects to publish page.
