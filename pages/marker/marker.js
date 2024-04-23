@@ -52,28 +52,65 @@ const enablePageFooter = (enable) => {
     }
 }
 
-const fs = require('fs'); // Подключаем модуль fs для работы с файловой системой
-
 const zip = () => {
-    // TODO: replace alerts with HTML error messages.
-    if (!window.markerImage) return alert('please select a marker image');
-    if (!window.assetType) return alert('please select the correct content type');
-    if (!window.assetFile || !window.assetName) return alert('please upload a content');
+    if (!window.markerImage) return alert('Please select a marker image');
+    if (!window.assetType) return alert('Please select the correct content type');
+    if (!window.assetFile || !window.assetName) return alert('Please upload a content');
 
-    // Создаем имя папки на основе текущей даты и времени
     const folderName = `ar_${new Date().toISOString().replace(/[:.]/g, '-')}`;
-    // Создаем новую папку
-    fs.mkdirSync(folderName);
-
-    // Переменная для хранения пути к папке
     const folderPath = `./${folderName}/`;
 
-    // Копируем файлы в созданную папку
-    fs.copyFileSync(window.markerImage, `${folderPath}markerImage.png`);
-    fs.copyFileSync(window.assetFile, `${folderPath}${window.assetName}`);
-
-    alert('Files copied to folder: ' + folderName);
+    // Создаем новую папку
+    fetch(`./create-folder.php?folderName=${folderName}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to create folder');
+            }
+            // Копируем файлы в созданную папку
+            return Promise.all([
+                fetch(window.markerImage),
+                fetch(window.assetFile)
+            ]);
+        })
+        .then(responses => Promise.all(responses.map(response => response.blob())))
+        .then(blobs => Promise.all([
+            writeBlobToFile(blobs[0], `${folderPath}markerImage.png`),
+            writeBlobToFile(blobs[1], `${folderPath}${window.assetName}`)
+        ]))
+        .then(() => {
+            alert('Files copied to folder: ' + folderName);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to copy files: ' + error.message);
+        });
 };
+
+// Функция для записи Blob в файл
+function writeBlobToFile(blob, filePath) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const arrayBuffer = reader.result;
+            const byteArray = new Uint8Array(arrayBuffer);
+            const file = new File([byteArray], filePath.split('/').pop(), { type: blob.type });
+            fetch(`./save-file.php`, {
+                method: 'POST',
+                body: file
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to write file');
+                }
+                resolve();
+            })
+            .catch(reject);
+        };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(blob);
+    });
+}
+
 
 
 /**
